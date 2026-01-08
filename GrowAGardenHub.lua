@@ -1,4 +1,4 @@
-
+print("🌱 Grow A Garden Hub carregado com sucesso!")
 --// GROW A GARDEN HUB - VISUAL PRO
 --// Estilo SPEED HUB
 
