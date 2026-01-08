@@ -1,21 +1,22 @@
-print("🌱 Grow A Garden Hub carregado com sucesso!")
---// GROW A GARDEN HUB - VISUAL PRO
---// Estilo SPEED HUB
+--==============================
+-- GROW A GARDEN HUB (DELTA FIX)
+--==============================
+
+-- Aguarda jogo carregar
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
+
 local Player = Players.LocalPlayer
-local RS = game:GetService("ReplicatedStorage")
+repeat task.wait() until Player
 
--- ===== REMOTES (AJUSTE SE PRECISAR) =====
-local Remotes = {
-    Equip = RS.Remotes.EquipPet,
-    Unequip = RS.Remotes.UnequipAll,
-    Hatch = RS.Remotes.HatchEgg,
-    OpenEgg = RS.Remotes.OpenEgg,
-    Sell = RS.Remotes.SellPet
-}
-
--- ===== CONFIG =====
+--==============================
+-- CONFIG
+--==============================
 local Config = {
     DelayHatch = 1.2,
     DelayOpen = 1.5,
@@ -24,29 +25,51 @@ local Config = {
     HatchCombo = {"Chicken","Cow","Pig"},
     OpenPet = "Koi",
     SellPet = "Seal",
-    IgnoreGiant = true,
 
+    IgnoreGiant = true,
     PetsToSell = {}
 }
 
--- ===== FLAGS =====
 local AutoHatch = false
 local AutoOpen = false
 local AutoSell = false
 
--- ===== FUNÇÕES =====
+--==============================
+-- REMOTES (AJUSTE SE PRECISAR)
+--==============================
+local RemotesFolder = ReplicatedStorage:WaitForChild("Remotes", 10)
+if not RemotesFolder then
+    warn("❌ Pasta Remotes não encontrada")
+    return
+end
+
+local Remotes = {
+    Equip = RemotesFolder:WaitForChild("EquipPet"),
+    Unequip = RemotesFolder:WaitForChild("UnequipAll"),
+    Hatch = RemotesFolder:WaitForChild("HatchEgg"),
+    Open = RemotesFolder:WaitForChild("OpenEgg"),
+    Sell = RemotesFolder:WaitForChild("SellPet")
+}
+
+--==============================
+-- FUNÇÕES
+--==============================
 local function PetsFolder()
     return Player:WaitForChild("Pets")
 end
 
 local function UnequipAll()
-    Remotes.Unequip:FireServer()
+    pcall(function()
+        Remotes.Unequip:FireServer()
+    end)
 end
 
-local function Equip(name)
-    for _,p in pairs(PetsFolder():GetChildren()) do
-        if p.Name == name then
-            Remotes.Equip:FireServer(p)
+local function EquipPet(name)
+    for _,pet in pairs(PetsFolder():GetChildren()) do
+        if pet.Name == name then
+            pcall(function()
+                Remotes.Equip:FireServer(pet)
+            end)
         end
     end
 end
@@ -58,28 +81,39 @@ local function ShouldSell(pet)
     return Config.PetsToSell[pet.Name] == true
 end
 
--- ===== UI =====
-local gui = Instance.new("ScreenGui", Player.PlayerGui)
+--==============================
+-- UI (COREGUI – DELTA FIX)
+--==============================
+pcall(function()
+    if CoreGui:FindFirstChild("GrowGardenHub") then
+        CoreGui.GrowGardenHub:Destroy()
+    end
+end)
+
+local gui = Instance.new("ScreenGui")
 gui.Name = "GrowGardenHub"
+gui.Parent = CoreGui
 
 local main = Instance.new("Frame", gui)
-main.Size = UDim2.new(0,480,0,340)
-main.Position = UDim2.new(0.5,-240,0.5,-170)
+main.Size = UDim2.new(0, 480, 0, 350)
+main.Position = UDim2.new(0.5, -240, 0.5, -175)
 main.BackgroundColor3 = Color3.fromRGB(20,20,20)
+main.BorderSizePixel = 0
 main.Active = true
 main.Draggable = true
-main.BorderSizePixel = 0
 
 local title = Instance.new("TextLabel", main)
 title.Size = UDim2.new(1,0,0,40)
+title.BackgroundTransparency = 1
 title.Text = "🌱 GROW A GARDEN HUB"
 title.TextColor3 = Color3.fromRGB(255,140,0)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 22
-title.BackgroundTransparency = 1
 
--- BOTÃO
-local function Button(text,x,y)
+--==============================
+-- UI HELPERS
+--==============================
+local function Button(text, x, y)
     local b = Instance.new("TextButton", main)
     b.Size = UDim2.new(0,200,0,35)
     b.Position = UDim2.new(0,x,0,y)
@@ -92,15 +126,16 @@ local function Button(text,x,y)
     return b
 end
 
--- INPUT
-local function Input(label,x,y,default,callback)
+local function Input(label, x, y, default, callback)
     local l = Instance.new("TextLabel", main)
     l.Text = label
     l.Position = UDim2.new(0,x,0,y)
     l.Size = UDim2.new(0,200,0,20)
     l.TextColor3 = Color3.new(1,1,1)
     l.BackgroundTransparency = 1
-    l.TextXAlignment = Left
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.Font = Enum.Font.Gotham
+    l.TextSize = 13
 
     local box = Instance.new("TextBox", main)
     box.Text = tostring(default)
@@ -108,14 +143,19 @@ local function Input(label,x,y,default,callback)
     box.Size = UDim2.new(0,200,0,30)
     box.BackgroundColor3 = Color3.fromRGB(30,30,30)
     box.TextColor3 = Color3.new(1,1,1)
+    box.ClearTextOnFocus = false
 
     box.FocusLost:Connect(function()
         local v = tonumber(box.Text)
-        if v then callback(v) end
+        if v then
+            callback(v)
+        end
     end)
 end
 
+--==============================
 -- BOTÕES
+--==============================
 local hatchBtn = Button("Auto Hatch [OFF]",20,60)
 local openBtn  = Button("Auto Open Egg [OFF]",20,105)
 local sellBtn  = Button("Auto Sell [OFF]",20,150)
@@ -135,14 +175,20 @@ sellBtn.MouseButton1Click:Connect(function()
     sellBtn.Text = AutoSell and "Auto Sell [ON]" or "Auto Sell [OFF]"
 end)
 
+--==============================
 -- DELAYS
+--==============================
 Input("Delay Hatch",250,60,Config.DelayHatch,function(v) Config.DelayHatch=v end)
 Input("Delay Open Egg",250,110,Config.DelayOpen,function(v) Config.DelayOpen=v end)
 Input("Delay Sell",250,160,Config.DelaySell,function(v) Config.DelaySell=v end)
 
--- ===== PET SELECT (VENDA) =====
-local listY = 210
+--==============================
+-- SELEÇÃO DE PETS PARA VENDER
+--==============================
 local used = {}
+local startY = 210
+local col = 0
+local row = 0
 
 for _,pet in pairs(PetsFolder():GetChildren()) do
     if not used[pet.Name] then
@@ -150,53 +196,71 @@ for _,pet in pairs(PetsFolder():GetChildren()) do
 
         local chk = Instance.new("TextButton", main)
         chk.Size = UDim2.new(0,140,0,25)
-        chk.Position = UDim2.new(0,20 + (#used%3)*150,0,listY + math.floor(#used/3)*30)
+        chk.Position = UDim2.new(0,20 + (col*150),0,startY + (row*30))
         chk.Text = pet.Name.." [OFF]"
         chk.BackgroundColor3 = Color3.fromRGB(30,30,30)
         chk.TextColor3 = Color3.new(1,1,1)
         chk.BorderSizePixel = 0
+        chk.Font = Enum.Font.Gotham
+        chk.TextSize = 12
 
         chk.MouseButton1Click:Connect(function()
             Config.PetsToSell[pet.Name] = not Config.PetsToSell[pet.Name]
-            chk.Text = pet.Name..(Config.PetsToSell[pet.Name] and " [ON]" or " [OFF]")
+            chk.Text = pet.Name .. (Config.PetsToSell[pet.Name] and " [ON]" or " [OFF]")
         end)
+
+        col += 1
+        if col >= 3 then
+            col = 0
+            row += 1
+        end
     end
 end
 
--- ===== LOOPS =====
+--==============================
+-- LOOPS
+--==============================
 task.spawn(function()
-    while true do
-        task.wait(Config.DelayHatch)
+    while task.wait(Config.DelayHatch) do
         if AutoHatch then
             UnequipAll()
-            for _,p in pairs(Config.HatchCombo) do Equip(p) end
-            Remotes.Hatch:FireServer()
+            for _,p in pairs(Config.HatchCombo) do
+                EquipPet(p)
+            end
+            pcall(function()
+                Remotes.Hatch:FireServer()
+            end)
         end
     end
 end)
 
 task.spawn(function()
-    while true do
-        task.wait(Config.DelayOpen)
+    while task.wait(Config.DelayOpen) do
         if AutoOpen then
             UnequipAll()
-            Equip(Config.OpenPet)
-            Remotes.OpenEgg:FireServer()
+            EquipPet(Config.OpenPet)
+            pcall(function()
+                Remotes.Open:FireServer()
+            end)
         end
     end
 end)
 
 task.spawn(function()
-    while true do
-        task.wait(Config.DelaySell)
+    while task.wait(Config.DelaySell) do
         if AutoSell then
             UnequipAll()
-            Equip(Config.SellPet)
-            for _,p in pairs(PetsFolder():GetChildren()) do
-                if ShouldSell(p) then
-                    Remotes.Sell:FireServer(p)
+            EquipPet(Config.SellPet)
+
+            for _,pet in pairs(PetsFolder():GetChildren()) do
+                if ShouldSell(pet) then
+                    pcall(function()
+                        Remotes.Sell:FireServer(pet)
+                    end)
                 end
             end
         end
     end
 end)
+
+print("✅ Grow A Garden Hub carregado com sucesso (DELTA)")
