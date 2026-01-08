@@ -1,5 +1,6 @@
 -- =====================================
--- Grow A Garden Hub v1.0 (UI COMPLETA)
+-- Grow A Garden Hub v2.1
+-- UI Completa + Auto Collect Fruits
 -- Compatível com DELTA
 -- =====================================
 
@@ -7,31 +8,34 @@ if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 
+local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
+local Player = Players.LocalPlayer
 
+-- Remove GUI antiga
 pcall(function()
     CoreGui:FindFirstChild("GrowGardenHub"):Destroy()
 end)
 
--- ScreenGui
+-- ======================
+-- GUI BASE
+-- ======================
+
 local Gui = Instance.new("ScreenGui")
 Gui.Name = "GrowGardenHub"
 Gui.IgnoreGuiInset = true
 Gui.ResetOnSpawn = false
 Gui.Parent = CoreGui
 
--- Main Frame
 local Main = Instance.new("Frame", Gui)
-Main.Size = UDim2.new(0, 460, 0, 300)
-Main.Position = UDim2.new(0.5, -230, 0.5, -150)
+Main.Size = UDim2.new(0, 460, 0, 320)
+Main.Position = UDim2.new(0.5, -230, 0.5, -160)
 Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Main.Active = true
 Main.Draggable = true
 Main.BorderSizePixel = 0
-
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
 
--- Title
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 45)
 Title.BackgroundTransparency = 1
@@ -40,37 +44,33 @@ Title.Font = Enum.Font.GothamBold
 Title.TextSize = 18
 Title.TextColor3 = Color3.fromRGB(0, 255, 120)
 
--- Sidebar
-local Side = Instance.new("Frame", Main)
-Side.Size = UDim2.new(0, 140, 1, -45)
-Side.Position = UDim2.new(0, 0, 0, 45)
-Side.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Side.BorderSizePixel = 0
-
--- Content
 local Content = Instance.new("Frame", Main)
-Content.Size = UDim2.new(1, -140, 1, -45)
-Content.Position = UDim2.new(0, 140, 0, 45)
+Content.Size = UDim2.new(1, 0, 1, -45)
+Content.Position = UDim2.new(0, 0, 0, 45)
 Content.BackgroundTransparency = 1
 
--- Estado dos sistemas
+-- ======================
+-- ESTADOS
+-- ======================
+
 local States = {
-    AutoHatch = false,
-    AutoSell = false,
-    AutoOpen = false
+    AutoCollect = false
 }
 
--- Função botão toggle
+-- ======================
+-- FUNÇÃO BOTÃO TOGGLE
+-- ======================
+
 local function CreateToggle(text, yPos, callback)
     local btn = Instance.new("TextButton", Content)
-    btn.Size = UDim2.new(0, 260, 0, 45)
-    btn.Position = UDim2.new(0.5, -130, 0, yPos)
+    btn.Size = UDim2.new(0, 360, 0, 45)
+    btn.Position = UDim2.new(0.5, -180, 0, yPos)
     btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     btn.TextColor3 = Color3.fromRGB(255, 255, 255)
     btn.Font = Enum.Font.Gotham
     btn.TextSize = 14
     btn.Text = text .. ": OFF"
-
+    btn.BorderSizePixel = 0
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
 
     btn.MouseButton1Click:Connect(function()
@@ -80,34 +80,58 @@ local function CreateToggle(text, yPos, callback)
     end)
 end
 
--- Criar Toggles
-CreateToggle("Auto Hatch", 20, function()
-    States.AutoHatch = not States.AutoHatch
-    print("Auto Hatch:", States.AutoHatch)
-    return States.AutoHatch
+-- ======================
+-- AUTO COLLECT FRUITS
+-- ======================
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if not States.AutoCollect then
+            continue
+        end
+
+        local char = Player.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then continue end
+
+        for _, v in pairs(workspace:GetDescendants()) do
+            -- ProximityPrompt (principal)
+            if v:IsA("ProximityPrompt") and v.Enabled then
+                pcall(function()
+                    fireproximityprompt(v)
+                end)
+            end
+
+            -- Touch (fallback)
+            if v:IsA("BasePart") and v.Name:lower():find("fruit") then
+                pcall(function()
+                    firetouchinterest(hrp, v, 0)
+                    firetouchinterest(hrp, v, 1)
+                end)
+            end
+        end
+    end
 end)
 
-CreateToggle("Auto Open Eggs", 80, function()
-    States.AutoOpen = not States.AutoOpen
-    print("Auto Open:", States.AutoOpen)
-    return States.AutoOpen
-end)
+-- ======================
+-- BOTÃO
+-- ======================
 
-CreateToggle("Auto Sell Pets", 140, function()
-    States.AutoSell = not States.AutoSell
-    print("Auto Sell:", States.AutoSell)
-    return States.AutoSell
+CreateToggle("Auto Collect Fruits", 40, function()
+    States.AutoCollect = not States.AutoCollect
+    print("Auto Collect Fruits:", States.AutoCollect)
+    return States.AutoCollect
 end)
 
 -- Info
 local Info = Instance.new("TextLabel", Content)
-Info.Size = UDim2.new(1, -40, 0, 40)
-Info.Position = UDim2.new(0, 20, 0, 210)
+Info.Size = UDim2.new(1, -40, 0, 60)
+Info.Position = UDim2.new(0, 20, 0, 100)
 Info.BackgroundTransparency = 1
 Info.TextWrapped = true
-Info.Text = "⚠️ Funções visuais prontas.\nLógica do jogo entra na próxima versão."
+Info.Text = "✔ Coleta automática de frutas\n✔ Qualquer fruta disponível\n⚠️ Sistema simples (v2.1)"
 Info.Font = Enum.Font.Gotham
 Info.TextSize = 12
 Info.TextColor3 = Color3.fromRGB(180, 180, 180)
 
-print("Grow A Garden Hub v1.0 carregado (UI COMPLETA)")
+print("Grow A Garden Hub v2.1 carregado com sucesso (DELTA)")
