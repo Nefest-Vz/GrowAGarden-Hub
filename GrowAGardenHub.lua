@@ -1,247 +1,165 @@
--- =====================================
--- Grow A Garden Hub v2.3
--- Auto Collect (Seguro) + Duplicate Fruit
--- Compatível com DELTA
--- =====================================
-
-if not game:IsLoaded() then
-    game.Loaded:Wait()
-end
-
+-- Services
 local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local Player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
-pcall(function()
-    CoreGui:FindFirstChild("GrowGardenHub"):Destroy()
-end)
+local player = Players.LocalPlayer
+local collecting = false
+local connection
+local minimized = false
 
--- ======================
 -- GUI
--- ======================
+local gui = Instance.new("ScreenGui")
+gui.Name = "AutoCollectGui"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
 
-local Gui = Instance.new("ScreenGui")
-Gui.Name = "GrowGardenHub"
-Gui.IgnoreGuiInset = true
-Gui.ResetOnSpawn = false
-Gui.Parent = CoreGui
+-- Main Frame
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0, 260, 0, 140)
+main.Position = UDim2.new(0.5, -130, 0.5, -70)
+main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+main.Active = true
+main.Parent = gui
 
-local Main = Instance.new("Frame", Gui)
-Main.Size = UDim2.new(0, 460, 0, 340)
-Main.Position = UDim2.new(0.5, -230, 0.5, -170)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Main.Active = true
-Main.Draggable = true
-Main.BorderSizePixel = 0
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 14)
+-- Rounded corners
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 12)
+corner.Parent = main
 
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 45)
-Title.BackgroundTransparency = 1
-Title.Text = "🌱 Grow A Garden Hub"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
-Title.TextColor3 = Color3.fromRGB(0, 255, 120)
+-- RGB Border
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 2
+stroke.Parent = main
 
-local Content = Instance.new("Frame", Main)
-Content.Size = UDim2.new(1, 0, 1, -45)
-Content.Position = UDim2.new(0, 0, 0, 45)
-Content.BackgroundTransparency = 1
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -40, 0, 30)
+title.Position = UDim2.new(0, 10, 0, 5)
+title.BackgroundTransparency = 1
+title.Text = "AUTO COLLECT"
+title.TextColor3 = Color3.fromRGB(0, 255, 0)
+title.TextScaled = true
+title.Font = Enum.Font.GothamBold
+title.Parent = main
 
--- ======================
--- ESTADOS
--- ======================
+-- Minimize Button
+local minBtn = Instance.new("TextButton")
+minBtn.Size = UDim2.new(0, 30, 0, 30)
+minBtn.Position = UDim2.new(1, -35, 0, 5)
+minBtn.Text = "-"
+minBtn.TextScaled = true
+minBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+minBtn.TextColor3 = Color3.fromRGB(0, 255, 0)
+minBtn.Parent = main
 
-local States = {
-    AutoCollect = false
-}
+local minCorner = Instance.new("UICorner")
+minCorner.CornerRadius = UDim.new(0, 8)
+minCorner.Parent = minBtn
 
--- ======================
--- BOTÃO TOGGLE
--- ======================
+-- Collect Button
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(1, -20, 0, 45)
+button.Position = UDim2.new(0, 10, 0, 50)
+button.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.TextScaled = true
+button.Text = "Auto Collect: OFF"
+button.Font = Enum.Font.GothamBold
+button.Parent = main
 
-local function CreateToggle(text, yPos, callback)
-    local btn = Instance.new("TextButton", Content)
-    btn.Size = UDim2.new(0, 360, 0, 45)
-    btn.Position = UDim2.new(0.5, -180, 0, yPos)
-    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 14
-    btn.Text = text .. ": OFF"
-    btn.BorderSizePixel = 0
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 10)
+btnCorner.Parent = button
 
-    btn.MouseButton1Click:Connect(function()
-        local state = callback()
-        btn.Text = text .. (state and ": ON" or ": OFF")
-        btn.BackgroundColor3 = state and Color3.fromRGB(0,170,90) or Color3.fromRGB(45,45,45)
-    end)
-end
+-- Drag (Mobile + PC)
+local dragging, dragStart, startPos
 
-local function CreateButton(text, yPos, callback)
-    local btn = Instance.new("TextButton", Content)
-    btn.Size = UDim2.new(0, 360, 0, 45)
-    btn.Position = UDim2.new(0.5, -180, 0, yPos)
-    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 14
-    btn.Text = text
-    btn.BorderSizePixel = 0
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
-
-    btn.MouseButton1Click:Connect(callback)
-end
-
--- ======================
--- AUTO COLLECT (SEGURO)
--- ======================
-
-local MAX_DISTANCE = 18
-
-local function isFruitPrompt(prompt)
-    local parentName = prompt.Parent.Name:lower()
-    local action = (prompt.ActionText or ""):lower()
-
-    if parentName:find("shop") or parentName:find("npc") then return false end
-    if action:find("harvest") or action:find("collect") or action:find("pick") then
-        return true
-    end
-    if parentName:find("fruit") then return true end
-    return false
-end
-
-task.spawn(function()
-    while task.wait(0.4) do
-        if not States.AutoCollect then continue end
-
-        local char = Player.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not hrp then continue end
-
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("ProximityPrompt") and v.Enabled then
-                local part = v.Parent:IsA("BasePart") and v.Parent
-                if part then
-                    local dist = (part.Position - hrp.Position).Magnitude
-                    if dist <= MAX_DISTANCE and isFruitPrompt(v) then
-                        pcall(function()
-                            fireproximityprompt(v)
-                        end)
-                    end
-                end
-            end
-        end
-    end
+main.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = main.Position
+	end
 end)
 
--- ======================
--- DUPLICAR FRUTA NA MÃO
--- ======================
+main.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	end
+end)
 
-local function DuplicateHeldFruit()
-    local char = Player.Character
-    if not char then return end
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+		local delta = input.Position - dragStart
+		main.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
+end)
 
-    local tool = char:FindFirstChildOfClass("Tool")
-    if not tool then
-        warn("Nenhuma fruta equipada")
-        return
-    end
+-- RGB Border Animation
+local hue = 0
+RunService.RenderStepped:Connect(function()
+	hue = (hue + 1) % 360
+	stroke.Color = Color3.fromHSV(hue / 360, 1, 1)
+end)
 
-    local clone = tool:Clone()
-    clone.Parent = Player.Backpack
+-- Coin teleport function (INTACTA)
+local function teleportCoins()
+	local character = player.Character
+	if not character then return end
 
-    print("Fruta duplicada:", tool.Name)
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	local eventParts = workspace:FindFirstChild("EventParts")
+	if not eventParts then return end
+
+	for _, coin in ipairs(eventParts:GetChildren()) do
+		if coin:IsA("BasePart") then
+			coin.CFrame = hrp.CFrame
+		elseif coin:IsA("Model") then
+			if not coin.PrimaryPart then
+				local part = coin:FindFirstChildWhichIsA("BasePart")
+				if part then
+					coin.PrimaryPart = part
+				end
+			end
+			if coin.PrimaryPart then
+				coin:SetPrimaryPartCFrame(hrp.CFrame)
+			end
+		end
+	end
 end
 
--- ======================
--- BOTÕES
--- ======================
+-- Toggle collect
+button.MouseButton1Click:Connect(function()
+	collecting = not collecting
 
-CreateToggle("Auto Collect Fruits", 30, function()
-    States.AutoCollect = not States.AutoCollect
-    return States.AutoCollect
+	if collecting then
+		button.Text = "Auto Collect: ON"
+		button.TextColor3 = Color3.fromRGB(0, 255, 0)
+
+		connection = RunService.Heartbeat:Connect(teleportCoins)
+	else
+		button.Text = "Auto Collect: OFF"
+		button.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+		if connection then
+			connection:Disconnect()
+			connection = nil
+		end
+	end
 end)
 
-CreateButton("Duplicate Held Fruit", 90, function()
-    DuplicateHeldFruit()
+-- Minimize
+minBtn.MouseButton1Click:Connect(function()
+	minimized = not minimized
+	button.Visible = not minimized
+	main.Size = minimized and UDim2.new(0, 260, 0, 40) or UDim2.new(0, 260, 0, 140)
+	minBtn.Text = minimized and "+" or "-"
 end)
-
--- Info
-local Info = Instance.new("TextLabel", Content)
-Info.Size = UDim2.new(1, -40, 0, 120)
-Info.Position = UDim2.new(0, 20, 0, 150)
-Info.BackgroundTransparency = 1
-Info.TextWrapped = true
-Info.Text = "✔ Auto Collect filtrado\n✔ Duplicar fruta equipada\n⚠️ Dup pode ser local (depende do jogo)"
-Info.Font = Enum.Font.Gotham
-Info.TextSize = 12
-Info.TextColor3 = Color3.fromRGB(180, 180, 180)
-
-print("Grow A Garden Hub v2.3 carregado com sucesso")    btn.BorderSizePixel = 0
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
-
-    btn.MouseButton1Click:Connect(function()
-        local state = callback()
-        btn.Text = text .. (state and ": ON" or ": OFF")
-        btn.BackgroundColor3 = state and Color3.fromRGB(0,170,90) or Color3.fromRGB(45,45,45)
-    end)
-end
-
--- ======================
--- AUTO COLLECT FRUITS
--- ======================
-
-task.spawn(function()
-    while task.wait(0.5) do
-        if not States.AutoCollect then
-            continue
-        end
-
-        local char = Player.Character
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not hrp then continue end
-
-        for _, v in pairs(workspace:GetDescendants()) do
-            -- ProximityPrompt (principal)
-            if v:IsA("ProximityPrompt") and v.Enabled then
-                pcall(function()
-                    fireproximityprompt(v)
-                end)
-            end
-
-            -- Touch (fallback)
-            if v:IsA("BasePart") and v.Name:lower():find("fruit") then
-                pcall(function()
-                    firetouchinterest(hrp, v, 0)
-                    firetouchinterest(hrp, v, 1)
-                end)
-            end
-        end
-    end
-end)
-
--- ======================
--- BOTÃO
--- ======================
-
-CreateToggle("Auto Collect Fruits", 40, function()
-    States.AutoCollect = not States.AutoCollect
-    print("Auto Collect Fruits:", States.AutoCollect)
-    return States.AutoCollect
-end)
-
--- Info
-local Info = Instance.new("TextLabel", Content)
-Info.Size = UDim2.new(1, -40, 0, 60)
-Info.Position = UDim2.new(0, 20, 0, 100)
-Info.BackgroundTransparency = 1
-Info.TextWrapped = true
-Info.Text = "✔ Coleta automática de frutas\n✔ Qualquer fruta disponível\n⚠️ Sistema simples (v2.1)"
-Info.Font = Enum.Font.Gotham
-Info.TextSize = 12
-Info.TextColor3 = Color3.fromRGB(180, 180, 180)
-
-print("Grow A Garden Hub v2.1 carregado com sucesso (DELTA)")
